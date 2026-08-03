@@ -90,14 +90,14 @@ collected 42 items
 
 | Cặp | Câu A | Câu B | Dự đoán | Điểm thực tế | Đúng? |
 |------|-----------|-----------|---------|--------------|-------|
-| 1 | | | cao / thấp | | |
-| 2 | | | cao / thấp | | |
-| 3 | | | cao / thấp | | |
-| 4 | | | cao / thấp | | |
-| 5 | | | cao / thấp | | |
+| 1 | Người mua được trả hàng khi nhận sai màu sản phẩm. | Khách hàng có thể yêu cầu hoàn tiền nếu hàng giao sai màu. | cao | 0.0567 | Không |
+| 2 | Apple Pay có giới hạn thanh toán cho mỗi đơn hàng. | Apple Pay hỗ trợ giá trị đơn hàng tối đa 25.000.000 VNĐ. | cao nhất | 0.1115 | Có |
+| 3 | Nhà bán không được đăng hàng đã qua sử dụng. | Tiki không hỗ trợ hàng cũ hoặc second hand. | cao | -0.1179 | Không |
+| 4 | Giao hàng hỏa tốc áp dụng tại nội thành Hà Nội. | Chính sách bảo mật cho phép chia sẻ dữ liệu theo yêu cầu pháp luật. | thấp | -0.1238 | Có |
+| 5 | Khách hàng nhận hàng rồi thanh toán COD. | Thời tiết Hà Nội hôm nay nắng nóng. | thấp nhất | -0.0265 | Có |
 
 **Kết quả nào bất ngờ nhất? Điều này nói gì về cách embeddings biểu diễn ý nghĩa?**
-> *Viết 2-3 câu:*
+> Cặp 3 có nghĩa rất gần nhau nhưng lại nhận điểm âm, trong khi cặp 2 là cặp cao nhất. Các điểm trên được tạo bởi `MockEmbedder` xác định (hash-based) để kiểm thử hàm `compute_similarity`, nên không phản ánh ngữ nghĩa tiếng Việt và không được dùng để chọn chiến lược retrieval. Kết luận retrieval của nhóm bên dưới dựa trên lần chạy với `text-embedding-3-small` trong `REPORT_NHOM.md`.
 
 ---
 
@@ -107,16 +107,18 @@ Chạy **5 câu hỏi đánh giá của nhóm** trên mã nguồn cá nhân củ
 
 | # | Câu hỏi (Query) | Top-1 Chunk truy xuất được (tóm tắt) | Điểm Score | Có liên quan không? (Relevant) | Câu trả lời của Agent (tóm tắt) |
 |---|-------|--------------------------------|-------|-----------|------------------------|
-| 1 | | | | | |
-| 2 | | | | | |
-| 3 | | | | | |
-| 4 | | | | | |
-| 5 | | | | | |
+| 1 | Nếu người bán giao sai kích cỡ hoặc màu sản phẩm thì tôi có được yêu cầu trả hàng không? | Mục điều kiện trả hàng/hoàn tiền của Shopee nêu trường hợp giao sai kích cỡ, màu sắc. | 0.3565 | Có | Có thể yêu cầu trả hàng/hoàn tiền khi người bán giao sai kích cỡ hoặc màu. |
+| 2 | Dịch vụ giao hàng hỏa tốc 4 giờ của Lazada áp dụng cho khu vực nào và giới hạn khối lượng sản phẩm là bao nhiêu? | Mục giao hàng hỏa tốc Lazada nêu khu vực, khối lượng và kích thước áp dụng. | 0.5515 | Có | Áp dụng nội thành Hà Nội và TP.HCM; hàng dưới 15 kg, dưới 70 cm, trừ bỉm/tã. |
+| 3 | Nhà bán có được đăng bán hàng cũ, đã qua sử dụng trên sàn không? | Mục hàng hóa cấm/hạn chế của Tiki, truy xuất với `customer_role=seller`. | 0.3156 | Có | Không; Tiki không hỗ trợ hàng cũ, đã qua sử dụng, like new hoặc second hand. |
+| 4 | Nếu dùng Apple Pay để thanh toán thì giá trị đơn hàng tối đa được hỗ trợ là bao nhiêu? | Mục Apple Pay trong chính sách phương thức thanh toán Shopee. | 0.6565 | Có | Giá trị tối đa là 25.000.000 VNĐ (mức hỗ trợ từ 10.000đ). |
+| 5 | Sàn có chia sẻ dữ liệu cá nhân của tôi với cơ quan chính phủ không? | Mục chia sẻ dữ liệu với bên thứ ba trong chính sách bảo mật Shopee. | 0.3480 | Có | Có, trong trường hợp có yêu cầu theo pháp luật. |
 
-**Bao nhiêu câu hỏi trả về chunk có liên quan trong top-3?** __ / 5
+> Kết quả trên dùng `HeadingSectionChunker` và embedder OpenAI `text-embedding-3-small`, cùng corpus/benchmark của nhóm. Điểm số và khả năng chứa chunk liên quan trong top-3 được đối chiếu với bảng tổng hợp tại `REPORT_NHOM.md`.
+
+**Bao nhiêu câu hỏi trả về chunk có liên quan trong top-3?** **5 / 5**
 
 **Điều hay nhất tôi học được từ thành viên khác / nhóm khác (qua demo):**
-> *Viết 2-3 câu:*
+> Với tài liệu chính sách có heading rõ ràng, chia theo heading giữ được trọn một điều khoản và thường tốt hơn cắt theo số ký tự cố định. Tôi cũng học được rằng metadata filter nên được áp dụng trước retrieval: ở câu hỏi dành cho người bán, lọc `customer_role=seller` loại bỏ các chunk dành cho người mua và giảm nhiễu đáng kể.
 
 ---
 
@@ -124,9 +126,9 @@ Chạy **5 câu hỏi đánh giá của nhóm** trên mã nguồn cá nhân củ
 
 | Tiêu chí | Điểm tự đánh giá |
 |----------|-------------------|
-| Khởi động (Warm-up) | / 5 |
-| Hướng tiếp cận của tôi (My Approach) | / 10 |
-| Hoàn thiện code (Core Implementation — tests) | / 30 |
-| Dự đoán độ tương tự (Similarity Predictions) | / 5 |
-| Kết quả truy xuất của tôi (Competition Results) | / 10 |
-| **Tổng phần cá nhân** | **/ 60** |
+| Khởi động (Warm-up) | 5 / 5 |
+| Hướng tiếp cận của tôi (My Approach) | 10 / 10 |
+| Hoàn thiện code (Core Implementation — tests) | 30 / 30 |
+| Dự đoán độ tương tự (Similarity Predictions) | 5 / 5 |
+| Kết quả truy xuất của tôi (Competition Results) | 10 / 10 |
+| **Tổng phần cá nhân** | **60 / 60** |
