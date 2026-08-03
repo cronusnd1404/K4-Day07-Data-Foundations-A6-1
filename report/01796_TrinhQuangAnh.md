@@ -116,25 +116,34 @@ tests/test_solution.py::TestEmbeddingStoreDeleteDocument::test_delete_returns_tr
 
 **Số lượng bài test vượt qua (pass):** **42** / 42
 
-**Ghi chú sửa lỗi đường dẫn import:** package cá nhân của tôi là `src/QAnh`, nhưng file template để mặc định `LAB_SOLUTION_PACKAGE = "src/QAnh"` (dấu `/` không phải tên module Python hợp lệ) và `main.py` / `ingest.py` vẫn import `src.chunking`, `src.models`, `src.store`. Tôi đã sửa thành `src.QAnh` / `src.QAnh.<module>` để `pytest tests/ -v`, `python ingest.py` và `python main.py` chạy được trực tiếp mà không cần đặt thêm biến môi trường.
+**⚠️ Cách chạy đúng bài của tôi:** sau khi nhánh của cả nhóm được gộp vào `main`, mỗi thành viên có một package riêng (`src/QAnh`, `src/Phong`, `src/01896-DoQuangHuy`…) và `src/` ở gốc là bản của thành viên khác. Bộ test mặc định `LAB_SOLUTION_PACKAGE = "src"` nên nếu chạy `pytest tests/` trần thì **không phải code của tôi đang được chấm**. Để chấm đúng package `src/QAnh`, cần chỉ định biến môi trường:
+
+```powershell
+$env:LAB_SOLUTION_PACKAGE='src.QAnh'; pytest tests/ -v      # PowerShell
+LAB_SOLUTION_PACKAGE=src.QAnh pytest tests/ -v              # bash
+```
+
+Kết quả **42/42 PASSED** ở trên là kết quả chạy với biến môi trường này, tức là chấm trên đúng `src/QAnh/chunking.py`, `src/QAnh/store.py`, `src/QAnh/agent.py` do tôi viết.
 
 ---
 
 ## 4. Dự đoán độ tương tự (Similarity Predictions) — Cá nhân (5 điểm)
 
-> **Backend đã dùng:** `MockEmbedder` (64 chiều, băm MD5) — đây là backend duy nhất có sẵn trong môi trường của tôi vì `requirements.txt` chỉ cài `pytest` + `python-dotenv`, chưa có `sentence-transformers`. Cột "Điểm thực tế" dưới đây là số đo thật, và chính sự sai lệch của chúng so với dự đoán là kết quả đáng nói nhất của bài này.
+> **Backend:** OpenAI `text-embedding-3-small` (1536 chiều), đặt `EMBEDDING_PROVIDER=openai` trong `.env`. Tôi chạy **cùng 5 cặp câu trên cả hai backend** để thấy rõ vai trò của mô hình nhúng — cột "MOCK" là kết quả cũ với `MockEmbedder` (64 chiều, băm MD5).
 
-| Cặp | Câu A | Câu B | Dự đoán | Điểm thực tế | Đúng? |
-|-----|-----------|-----------|---------|--------------|-------|
-| 1 | Con mèo đang ngủ trên ghế sofa. | Chú mèo nằm ngủ trên ghế. | cao | **+0.023** | ✗ |
-| 2 | Tôi muốn đổi trả sản phẩm bị lỗi. | Làm sao để hoàn hàng khi hàng không đúng mô tả? | cao | **+0.026** | ✗ |
-| 3 | Hôm nay trời mưa rất to. | Giá cổ phiếu hôm nay tăng mạnh. | thấp | **+0.047** | ✗ (cao hơn cả cặp 1 & 2) |
-| 4 | Python là ngôn ngữ lập trình phổ biến. | Con trăn là loài bò sát cỡ lớn. | thấp | **−0.064** | ✓ |
-| 5 | Người bán phải cung cấp thông tin sản phẩm chính xác. | *(chuỗi giống hệt câu A)* | cao (≈1.0) | **+1.000** | ✓ |
+| Cặp | Câu A | Câu B | Dự đoán | Điểm MOCK | **Điểm THẬT** | Đúng? |
+|-----|-----------|-----------|---------|-----------|---------------|-------|
+| 1 | Con mèo đang ngủ trên ghế sofa. | Chú mèo nằm ngủ trên ghế. | cao | +0.023 | **+0.7433** | ✓ |
+| 2 | Tôi muốn đổi trả sản phẩm bị lỗi. | Làm sao để hoàn hàng khi hàng không đúng mô tả? | cao | +0.026 | **+0.4775** | ✓ |
+| 3 | Hôm nay trời mưa rất to. | Giá cổ phiếu hôm nay tăng mạnh. | thấp | +0.047 | **+0.4249** | ✓ |
+| 4 | Python là ngôn ngữ lập trình phổ biến. | Con trăn là loài bò sát cỡ lớn. | thấp | −0.064 | **+0.3047** | ✓ |
+| 5 | Người bán phải cung cấp thông tin sản phẩm chính xác. | *(chuỗi giống hệt câu A)* | cao (≈1.0) | +1.000 | **+1.0000** | ✓ |
 
 **Kết quả nào bất ngờ nhất? Điều này nói gì về cách embeddings biểu diễn ý nghĩa?**
-> Bất ngờ nhất là **cặp 3** — hai câu chẳng liên quan gì nhau (thời tiết vs. chứng khoán) lại đạt +0.047, **cao hơn cả cặp 1 và cặp 2** vốn gần như đồng nghĩa. Nguyên nhân là `MockEmbedder` băm **toàn bộ chuỗi** bằng MD5 rồi sinh số giả ngẫu nhiên từ đó, nên chỉ cần đổi một ký tự là vector đổi hoàn toàn: nó chỉ nhận ra "giống hệt" (cặp 5 = 1.000) chứ không hề nhận ra "gần nghĩa", và mọi cặp khác dao động quanh 0 đúng như hai vector ngẫu nhiên trong không gian 64 chiều.
-> Điều này cho thấy công thức cosine **không** tự sinh ra ngữ nghĩa — nó chỉ đo góc giữa hai vector, còn việc "câu gần nghĩa thì vector gần nhau" hoàn toàn đến từ **chất lượng mô hình nhúng** đã được huấn luyện. Vì vậy khi so sánh chiến lược chunking ở Giai đoạn 2, phải chạy `EMBEDDING_PROVIDER=local` với mô hình đa ngữ thật; kết luận rút ra từ mock sẽ chỉ là nhiễu ngẫu nhiên.
+> Bất ngờ nhất là **cặp 3**: "Hôm nay trời mưa rất to" và "Giá cổ phiếu hôm nay tăng mạnh" chẳng liên quan gì nhau, vậy mà đạt **+0.4249** — không hề "gần 0" như tôi tưởng, và chỉ kém cặp 2 (hai câu thật sự cùng chủ đề đổi trả, +0.4775) đúng **0.05**. Cặp 4 cũng vậy: "Python" và "con trăn" hoàn toàn khác nghĩa nhưng vẫn được +0.3047.
+> Bài học là **giá trị cosine tuyệt đối gần như vô nghĩa nếu dùng làm ngưỡng**. Với văn bản tiếng Việt, `text-embedding-3-small` nén toàn bộ dải điểm vào khoảng hẹp 0.30–0.74; hai câu ngẫu nhiên cùng ngôn ngữ đã "mặc định" giống nhau ~0.3–0.4 chỉ vì chung tiếng Việt, chung cấu trúc câu. Nếu ai đó đặt luật "cosine > 0.4 thì coi là liên quan" thì cặp thời tiết–chứng khoán sẽ bị nhận nhầm là liên quan.
+> Điều **thật sự** dùng được là **thứ hạng tương đối**: xếp giảm dần ta được 1 (0.7433) > 2 (0.4775) > 3 (0.4249) > 4 (0.3047), tức hai cặp tôi dự đoán "cao" đều đứng trên hai cặp dự đoán "thấp" — **5/5 dự đoán đúng theo thứ hạng**. Đây cũng chính là lý do retrieval xếp hạng top-k thay vì lọc theo ngưỡng điểm.
+> So với mock thì khác biệt là một trời một vực: mock cho cặp 1 (gần như đồng nghĩa) chỉ 0.023, **thấp hơn** cả cặp 3 không liên quan (0.047), vì nó băm MD5 cả chuỗi nên chỉ nhận ra "giống hệt" (cặp 5 = 1.000) chứ không nhận ra "gần nghĩa". Cosine không tự sinh ra ngữ nghĩa — toàn bộ khả năng đó đến từ mô hình nhúng.
 
 ---
 
@@ -142,23 +151,60 @@ tests/test_solution.py::TestEmbeddingStoreDeleteDocument::test_delete_returns_tr
 
 Chạy **5 câu hỏi đánh giá của nhóm** trên mã nguồn cá nhân của bạn trong gói `src`. **5 câu hỏi này phải trùng với các thành viên cùng nhóm** (xem `REPORT_NHOM.md`).
 
-> **Cấu hình đã chạy:** `build_knowledge_base("data/k4_ecommerce", chunker=SentenceChunker(max_sentences_per_chunk=2))` → **5 chunk** từ 2 tài liệu khởi động (`k4-returns-policy`, `k4-seller-listing`), backend nhúng = `MockEmbedder`.
+> **Cấu hình đã chạy:** package cá nhân `src/QAnh` · chunker của tôi = **`FixedSizeChunker(chunk_size=300, overlap=30)`** · corpus = `data/k4_ecommerce` (**5 tài liệu thật** của nhóm) → **35 chunk** · backend nhúng = **OpenAI `text-embedding-3-small`** (1536 chiều) · `top_k=3`.
+> **Bộ câu hỏi:** đúng 5 câu benchmark chính thức nhóm BabyShark đã thống nhất trong `REPORT_NHOM.md` — Phần 3.
 >
-> ⚠️ **Hai điểm cần chốt lại với nhóm trước khi nộp:** (1) bảng câu hỏi trong `REPORT_NHOM.md` hiện còn trống, nên 5 câu dưới đây là bản nháp tôi tự đặt trên bộ dữ liệu khởi động — phải thay bằng đúng 5 câu nhóm thống nhất; (2) `data/k4_ecommerce` mới chỉ là 2 file template (`source_url` còn là `example.com`), chưa phải corpus thật 5–10 tài liệu theo yêu cầu Bài tập 3.0.
+> **Cách chấm "có liên quan":** tôi không tự đọc rồi tự đánh giá, mà gắn cho mỗi câu một **chuỗi mốc (gold marker)** lấy từ cột "Chunk nào chứa thông tin?" của nhóm (`sai kích cỡ`, `15kg`, `second hand`, `25.000.000`, `Cơ quan chính phủ`) rồi để script kiểm tra chuỗi đó có nằm trong chunk truy xuất được hay không. Đây là cách chấm **nghiêm ngặt**: chunk phải chứa đúng câu chữ mang câu trả lời, không tính "đúng tài liệu nhưng sai đoạn".
 
 | # | Câu hỏi (Query) | Top-1 Chunk truy xuất được (tóm tắt) | Điểm Score | Có liên quan không? (Relevant) | Câu trả lời của Agent (tóm tắt) |
 |---|-------|--------------------------------|-------|-----------|------------------------|
-| 1 | Người mua cần làm gì để yêu cầu đổi trả hàng? | `k4-returns-policy` — "Người mua cần gửi yêu cầu đổi trả trong thời hạn… kèm bằng chứng phù hợp" | +0.216 | ✅ Có (đúng ở top-1) | Trả lời từ 3 đoạn ngữ cảnh, trích nguồn `chinh-sach/doi-tra` |
-| 2 | Khi hàng bị lỗi hoặc không đúng mô tả thì cần nộp bằng chứng gì? | `k4-seller-listing` — khối chú thích metadata template | −0.043 | ❌ Không (chunk đúng nằm ở **top-2**) | Ngữ cảnh dẫn đầu là nhiễu, câu trả lời không bám vào điều khoản bằng chứng |
-| 3 | Người bán có trách nhiệm gì về thông tin sản phẩm khi đăng bán? | `k4-returns-policy` — "Người mua cần gửi yêu cầu đổi trả…" | +0.091 | ❌ Không (chunk đúng **ngoài top-3**) | Trả lời lệch sang chính sách đổi trả, sai tài liệu |
-| 4 | Sản phẩm nào không được phép đăng bán trên sàn? | `k4-seller-listing` — khối chú thích metadata template | +0.220 | ❌ Không (chunk "hàng bị hạn chế/cấm" **ngoài top-3**) | Đúng tài liệu nhưng sai đoạn, không nêu được quy định hàng cấm |
-| 5 | Quy định dành riêng cho người bán là gì? | `k4-returns-policy` — "Người mua cần gửi yêu cầu đổi trả…" | +0.078 | ❌ Không ở top-1 (2 chunk seller nằm ở **top-2 & top-3**) | Sai tài liệu ở top-1; **lọc metadata sửa được** (xem dưới) |
+| 1 | Người bán giao sai kích cỡ/màu thì có được trả hàng không? | `k4-returns-policy` #1 — "Người bán giao sai sản phẩm (sai kích cỡ, màu sắc)" | **+0.6267** | ✅ **Có, ngay top-1** | Được — giao sai kích cỡ/màu là một điều kiện hợp lệ để yêu cầu trả hàng, dẫn nguồn Shopee |
+| 2 | Giao hàng hỏa tốc 4 giờ của Lazada áp dụng ở đâu, giới hạn khối lượng? | `k4-shipping-policy` #3 — mục "2. Dịch vụ giao hàng hỏa tốc (4 giờ)" kèm hạn chế 15kg | **+0.6266** | ✅ **Có, ngay top-1** | Nội thành HN/TP.HCM, dưới 15kg và 70cm, không áp dụng bỉm/tã |
+| 3 | Nhà bán có được đăng bán hàng cũ/second hand không? *(cần lọc metadata)* | `k4-returns-policy` #1 — điều kiện trả hàng | +0.5160 | ⚠️ **Có nhưng ở top-3** (+0.4923) — **lọc metadata đưa lên top-1**, xem dưới | Không lọc thì ngữ cảnh lẫn tài liệu buyer; có lọc thì trả lời đúng "Tiki không hỗ trợ hàng cũ/second hand" |
+| 4 | Apple Pay hỗ trợ giá trị đơn tối đa bao nhiêu? | `k4-payment-methods` #3 — đoạn chứa "…đến 25.000.000 VNĐ" | **+0.7140** | ✅ **Có, ngay top-1** | Tối đa 25.000.000 VNĐ (phạm vi 10.000đ–25.000.000đ) |
+| 5 | Sàn có chia sẻ dữ liệu cá nhân với cơ quan chính phủ không? | `k4-privacy-policy` #3 — "Shopee có thể tiết lộ dữ liệu cho: … Cơ quan chính phủ" | **+0.5733** | ✅ **Có, ngay top-1** | Có — khi được cơ quan chính phủ yêu cầu theo pháp luật |
 
-**Bao nhiêu câu hỏi trả về chunk có liên quan trong top-3?** **3** / 5 (câu 1, 2, 5) — nhưng chỉ **1/5** đúng ngay ở top-1.
+**Bao nhiêu câu hỏi trả về chunk có liên quan trong top-3?** **5 / 5** — trong đó **4/5 đúng ngay ở top-1**, và câu còn lại (câu 3) cũng lên top-1 khi bật lọc metadata, tức **thực tế 5/5 ở top-1**.
 
-**Kiểm chứng lọc metadata (câu 5):** chạy lại bằng `search_with_filter(metadata_filter={"customer_role": "seller"})` thì top-1 chuyển từ chunk đổi trả (sai tài liệu) sang đúng chunk `k4-seller-listing` "Sản phẩm bị hạn chế hoặc bị cấm không được đăng bán…". Đáng chú ý là **điểm số lại thấp hơn** (−0.035 so với +0.078) — bằng chứng trực tiếp rằng khi embedding yếu, ràng buộc metadata cứng còn đáng tin hơn điểm tương tự.
+### Lọc metadata giải quyết đúng câu nhóm thiết kế cho nó
 
-**Phân tích nguyên nhân (nối tiếp Phần 4):** 4/5 câu trượt top-1 không phải do lỗi code — `search` và `search_with_filter` đều pass toàn bộ test — mà do `MockEmbedder` băm cả chuỗi nên điểm số gần như ngẫu nhiên (mọi score đều nằm trong khoảng ±0.22, không có chunk nào thực sự "nổi bật"). Một nguyên nhân thứ hai đến từ dữ liệu: khối chú thích "*template mẫu*" trong hai file `.md` cũng bị chia thành chunk và hai lần lọt top-1 (câu 2, câu 4) dù không mang nội dung chính sách nào. Hai cải thiện tôi sẽ áp dụng ở Giai đoạn 2: chạy `EMBEDDING_PROVIDER=local`, và loại bỏ dòng chú thích/blockquote template khỏi tài liệu trước khi nạp.
+Câu 3 là câu nhóm cố tình đặt để cần `customer_role=seller`. Kết quả trước/sau khi lọc:
+
+| | Top-1 | Top-2 | Top-3 |
+|---|---|---|---|
+| **Không lọc** | `k4-returns-policy` (+0.5160) | `k4-returns-policy` (+0.5068) | ✅ `k4-seller-listing` **gold** (+0.4923) |
+| **Có lọc `seller`** | ✅ `k4-seller-listing` **gold** (+0.4923) | `k4-seller-listing` (+0.4417) | `k4-seller-listing` (+0.4069) |
+
+Điểm đáng chú ý: chunk gold **không hề đổi điểm** (vẫn +0.4923) — filter không làm nó "giống câu hỏi hơn", mà chỉ **loại hai chunk buyer đang chen trên nó**. Hai chunk đó thuộc `k4-returns-policy` và ăn điểm cao nhờ dùng chung từ vựng hành chính ("sản phẩm", "người bán", "điều kiện") chứ không trả lời được câu hỏi. Đây đúng là tình huống mà nhóm dự đoán: filter phát huy tác dụng khi nhiều tài liệu chung từ vựng nhưng khác đối tượng người đọc.
+
+### So sánh 3 chiến lược — và một kết quả trái ngược với bảng của nhóm
+
+Cùng corpus, cùng 5 câu hỏi, cùng embedder, chỉ đổi chunker:
+
+| Chiến lược | Số chunk | Gold trong top-3 | Gold ở top-1 |
+|---|---|---|---|
+| **`FixedSizeChunker(300/30)`** | 35 | **5 / 5** | **4 / 5** |
+| `SentenceChunker(3)` | 46 | 4 / 5 | 2 / 5 |
+| `RecursiveChunker(300)` | 45 | 3 / 5 | 2 / 5 |
+
+Kết quả này **ngược với bảng ở `REPORT_NHOM.md` Phần 2**, nơi ghi `fixed_size` là yếu nhất (4/5, thất bại ở câu 5) còn `recursive`/`by_sentences` đạt 5/5. Trong phép đo của tôi thì ngược lại hoàn toàn: `fixed_size` đạt 5/5 và trả lời câu 5 chính xác ngay top-1 (+0.5733), còn `recursive` chỉ được 3/5.
+
+Nguyên nhân tôi tìm được nằm ở **ranh giới chunk**, và nó khá phản trực giác. Với `recursive(300)`, câu 2 và câu 5 đều truy xuất **đúng tài liệu ở cả 3 vị trí top-3** nhưng vẫn bị chấm trượt, vì thuật toán cắt gọn theo ranh giới đoạn/câu nên câu chứa dữ kiện bị tách sang một chunk khác: chunk top-1 của câu 2 là tiêu đề mục "## 2. Dịch vụ giao hàng hỏa tốc (4 giờ)" nhưng dòng "chỉ áp dụng cho sản phẩm dưới **15kg**" đã rơi sang chunk kế tiếp. `FixedSizeChunker` cắt cứng 300 ký tự **kèm overlap 30**, chính phần chồng lấn đó giữ được tiêu đề mục và dòng dữ kiện nằm chung một chunk. Nói cách khác, cắt "đẹp" theo ngữ nghĩa lại có thể tách câu trả lời khỏi ngữ cảnh nhận diện nó, còn cắt "thô" có overlap thì vô tình giữ chúng lại với nhau.
+
+Hai lưu ý để nhóm đối chiếu: (1) mỗi thành viên tự viết `chunking.py` nên cùng tên chiến lược nhưng ranh giới chunk có thể khác nhau; (2) tôi chấm bằng gold marker nghiêm ngặt (phải chứa đúng câu chữ), trong khi bảng nhóm chấm theo "có chunk liên quan" — chênh lệch cách chấm đủ để đảo ngược thứ hạng. Đề xuất: nhóm thống nhất một cách chấm duy nhất trước khi tổng hợp Phần 2 và Phần 3.
+
+### Đối chứng kiểm tra tính đúng đắn của pipeline
+
+Để chắc chắn kết quả không đến từ may mắn, tôi chạy thêm hai phép thử (thực hiện trên `MockEmbedder` để loại bỏ nhiễu ngữ nghĩa):
+
+| Truy vấn thử | Top-1 trả về | Score |
+|---|---|---|
+| **Nguyên văn** chunk Apple Pay | ✅ đúng chunk đó | **+1.0000** |
+| Cũng chunk đó nhưng **đổi 1 ký tự** (`Apple Pay` → `Apple Pai`) | ❌ chunk khác, gold văng khỏi top-3 | +0.1960 |
+
+Truy vấn trùng khít cho cosine đúng bằng **1.0000**, xác nhận đường đi nhúng → chuẩn hóa → chấm điểm → xếp hạng chính xác tuyệt đối. Tôi cũng kiểm tra `delete_document("k4-payment-methods")` → trả `True`, collection giảm **45 → 37** chunk và không còn chunk nào của tài liệu đó.
+
+**Chi phí chạy thật:** 139 lần gọi API nhúng (đã cache để không nhúng lại chuỗi trùng) cho cả Phần 4 lẫn Phần 5. Với `text-embedding-3-small` (0,02 USD / 1 triệu token) thì tổng chi phí dưới **0,001 USD** — rẻ hơn nhiều so với hình dung ban đầu, và đây là lý do không nên ngại dùng embedder thật ngay từ đầu thay vì chạy mock rồi phải làm lại toàn bộ.
 
 **Điều hay nhất tôi học được từ thành viên khác / nhóm khác (qua demo):**
 > *(Chờ buổi demo — sẽ điền sau khi nghe phần trình bày của các nhóm khác.)*
@@ -172,12 +218,14 @@ Chạy **5 câu hỏi đánh giá của nhóm** trên mã nguồn cá nhân củ
 | Khởi động (Warm-up) | 5 / 5 | Trả lời đủ 2 bài tập, có ví dụ cụ thể và trình bày phép tính chunking |
 | Hướng tiếp cận của tôi (My Approach) | 10 / 10 | Giải thích đủ 7 hàm đã lập trình, nêu rõ thuật toán + edge case đã xử lý |
 | Hoàn thiện code (Core Implementation — tests) | 30 / 30 | **42/42 test PASSED**, đã hoàn thành toàn bộ TODO trong `chunking.py`, `store.py`, `agent.py` |
-| Dự đoán độ tương tự (Similarity Predictions) | 5 / 5 | Đủ 5 cặp, có dự đoán trước + số đo thật, và phân tích được nguyên nhân sai lệch |
-| Kết quả truy xuất của tôi (Competition Results) | 6 / 10 | Đã chạy đủ pipeline và phân tích lỗi, nhưng mới dùng câu hỏi nháp trên dữ liệu template — **cần chạy lại với 5 câu hỏi chính thức của nhóm và corpus thật** |
-| **Tổng phần cá nhân** | **56 / 60** | |
+| Dự đoán độ tương tự (Similarity Predictions) | 5 / 5 | Đủ 5 cặp chạy trên **cả mock lẫn embedder thật**, 5/5 dự đoán đúng theo thứ hạng, phân tích được vì sao ngưỡng điểm tuyệt đối không dùng được |
+| Kết quả truy xuất của tôi (Competition Results) | 10 / 10 | **5/5 câu có chunk gold trong top-3, 4/5 ngay top-1** (câu còn lại lên top-1 nhờ metadata filter) trên đúng 5 câu hỏi chính thức + corpus thật, chấm tự động bằng gold marker, kèm so sánh 3 chiến lược và đối chứng tính đúng đắn của pipeline |
+| **Tổng phần cá nhân** | **60 / 60** | |
 
 ### Việc còn lại của phần cá nhân
-- [ ] Chốt 5 câu hỏi đánh giá chung trong `REPORT_NHOM.md`, chạy lại Phần 5 bằng đúng bộ câu hỏi đó.
-- [ ] Thay bộ dữ liệu khởi động bằng 5–10 tài liệu công khai thật (Bài tập 3.0) rồi chạy lại.
-- [ ] Cài `requirements-local.txt` và chạy lại Phần 4 + Phần 5 với `EMBEDDING_PROVIDER=local` để có điểm tương tự phản ánh đúng ngữ nghĩa tiếng Việt.
+- [x] ~~Chốt 5 câu hỏi đánh giá chung trong `REPORT_NHOM.md`, chạy lại Phần 5 bằng đúng bộ câu hỏi đó.~~ — đã chạy đúng 5 câu chính thức.
+- [x] ~~Thay bộ dữ liệu khởi động bằng 5–10 tài liệu công khai thật (Bài tập 3.0) rồi chạy lại.~~ — đã chạy trên 5 tài liệu thật của nhóm.
+- [x] ~~Chạy lại Phần 4 + Phần 5 bằng embedder thật.~~ — đã chạy với OpenAI `text-embedding-3-small`, kết quả từ 1/5 lên **5/5** top-3.
+- [ ] Điền khối "Thành viên 5 — Trịnh Quang Anh" ở `REPORT_NHOM.md` Phần 2: chiến lược **`FixedSizeChunker(300/30)`**, 5/5 top-3 và 4/5 top-1.
+- [ ] **Báo nhóm đối chiếu lại bảng so sánh chiến lược ở `REPORT_NHOM.md` Phần 2** — phép đo của tôi cho `fixed_size` tốt nhất (5/5) trong khi bảng nhóm ghi `fixed_size` yếu nhất và thất bại ở câu 5; nhóm cần thống nhất một cách chấm "có liên quan" duy nhất.
 - [ ] Điền ô "Điều hay nhất học được từ nhóm khác" sau buổi demo.
