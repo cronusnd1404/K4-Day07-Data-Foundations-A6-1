@@ -151,19 +151,19 @@ tests/test_solution.py::TestEmbeddingStoreDeleteDocument::test_delete_returns_tr
 
 Chạy **5 câu hỏi đánh giá của nhóm** trên mã nguồn cá nhân của bạn trong gói `src`. **5 câu hỏi này phải trùng với các thành viên cùng nhóm** (xem `REPORT_NHOM.md`).
 
-> Chiến lược dùng: `HeadingSectionChunker` (custom, chia theo heading `##`) — xem lý do chọn ở `REPORT_NHOM.md` Phần 2. Embedder: OpenAI `text-embedding-3-small`. Corpus: 5 tài liệu trong `data/k4_ecommerce/`.
+> Chiến lược dùng: `HeadingSectionChunker` (custom, chia theo heading `##`) — xem lý do chọn ở `REPORT_NHOM.md` Phần 2. Embedder: OpenAI `text-embedding-3-small`. Corpus: 5 tài liệu trong `data/k4_ecommerce/`. Chạy trực tiếp bằng `python bench.py --strategy heading_custom`.
 
 | # | Câu hỏi (Query) | Top-1 Chunk truy xuất được (tóm tắt) | Điểm Score | Có liên quan không? (Relevant) | Câu trả lời của Agent (tóm tắt) |
 |---|-------|--------------------------------|-------|-----------|------------------------|
-| 1 | Giao sai kích cỡ/màu có được trả hàng không? | `k4-returns-policy` — "Điều kiện yêu cầu trả hàng/hoàn tiền" | 0.3565 | Có | Có — người bán giao sai sản phẩm (sai kích cỡ, màu sắc) là một điều kiện hợp lệ để yêu cầu trả hàng/hoàn tiền |
-| 2 | Giao hàng hỏa tốc Lazada: khu vực & giới hạn khối lượng? | `k4-shipping-policy` — "1. Hỗ trợ phí vận chuyển" | 0.5153 | Có | Nội thành Hà Nội/TP.HCM, sản phẩm dưới 15kg và dưới 70cm, không áp dụng bỉm/tã |
-| 3 | Nhà bán có được đăng hàng cũ trên Tiki không? *(lọc `customer_role=seller`)* | `k4-seller-listing` — "Hàng hóa cấm và hạn chế" | 0.3052 | Có | Không — Tiki không hỗ trợ đăng bán hàng cũ, đã qua sử dụng, like new, second hand |
-| 4 | Giới hạn giá trị đơn hàng khi dùng Apple Pay? | `k4-payment-methods` — "7. Apple Pay" | 0.6565 | Có | Tối đa 25.000.000 VNĐ (phạm vi 10.000đ–25.000.000đ) |
-| 5 | Sàn có chia sẻ dữ liệu cá nhân với chính phủ không? | `k4-privacy-policy` — "Chia sẻ dữ liệu với bên thứ ba" | 0.3480 | Có | Có — khi được yêu cầu theo pháp luật |
+| 1 | Giao sai kích cỡ/màu có được trả hàng không? | `k4-returns-policy` — "Điều kiện yêu cầu trả hàng/hoàn tiền" | 0.7013 | Có (đúng content) | Có — người bán giao sai sản phẩm (sai kích cỡ, màu sắc) là một điều kiện hợp lệ để yêu cầu trả hàng/hoàn tiền |
+| 2 | Giao hàng hỏa tốc Lazada: khu vực & giới hạn khối lượng? | `k4-shipping-policy` — "2. Dịch vụ giao hàng hỏa tốc (4 giờ)" | 0.7179 | Có (đúng content) | Nội thành Hà Nội/TP.HCM, sản phẩm dưới 15kg và dưới 70cm, không áp dụng bỉm/tã |
+| 3 | Nhà bán có được đăng hàng cũ trên Tiki không? *(lọc `customer_role=seller`)* | `k4-seller-listing` — "Hàng hóa cấm và hạn chế" | 0.5007 | Có (đúng content) | Không — Tiki không hỗ trợ đăng bán hàng cũ, đã qua sử dụng, like new, second hand |
+| 4 | Giới hạn giá trị đơn hàng khi dùng Apple Pay? | `k4-payment-methods` — "7. Apple Pay" | 0.6931 | Có (đúng content) | Tối đa 25.000.000 VNĐ (phạm vi 10.000đ–25.000.000đ) |
+| 5 | Sàn có chia sẻ dữ liệu cá nhân với chính phủ không? | `k4-privacy-policy` — "Loại dữ liệu cá nhân được thu thập" (top-1, chưa đúng mục) | 0.5668 | Có, nhưng ở **hạng 2** — chunk đúng ("Chia sẻ dữ liệu với bên thứ ba", score 0.5413) nằm ở top-2, không phải top-1 | Cần đọc cả 3 chunk top-3 mới thấy câu trả lời — nếu agent chỉ dùng top-1 sẽ trả lời thiếu; dùng cả top-3 thì có: "Có — khi được yêu cầu theo pháp luật" |
 
-> Cột "Câu trả lời của Agent" là nội dung tóm tắt trực tiếp từ chunk top-1 (chưa gọi LLM thật — mới chỉ dùng API embedding của OpenAI, chưa dùng API sinh văn bản). Chất lượng retrieval (context đưa vào prompt) là nền tảng quyết định độ chính xác câu trả lời cuối cùng của `KnowledgeBaseAgent.answer`.
+> Cột "Câu trả lời của Agent" là nội dung tóm tắt trực tiếp từ các chunk top-3 (chưa gọi LLM thật — mới chỉ dùng API embedding của OpenAI, chưa dùng API sinh văn bản). Câu 5 cho thấy rõ: dù cùng đúng tài liệu, thứ hạng của chunk chứa câu trả lời thật vẫn có thể lệch (hạng 2 thay vì hạng 1) — xem thêm phân tích lỗi (case tệ hơn với `RecursiveChunker`) ở `REPORT_NHOM.md` Phần 4.
 
-**Bao nhiêu câu hỏi trả về chunk có liên quan trong top-3?** 5 / 5
+**Bao nhiêu câu hỏi trả về chunk có liên quan trong top-3?** 5 / 5 (đúng tài liệu); 5/5 nếu tính "đúng content trong top-3" (câu 5 đúng content nhưng ở hạng 2, không phải hạng 1)
 
 **Điều hay nhất tôi học được từ thành viên khác / nhóm khác (qua demo):**
 > *Chưa có — phần này cần buổi demo thật với các thành viên khác trong nhóm và các nhóm khác trong lớp, sẽ bổ sung sau khi demo.*
