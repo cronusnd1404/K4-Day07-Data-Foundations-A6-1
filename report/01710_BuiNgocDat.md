@@ -1,8 +1,8 @@
 # Báo Cáo Cá Nhân — Lab 7: Embedding & Vector Store
 
 **Họ tên:** Bùi Ngọc Đạt
-**Nhóm:** A6-1
-**Ngày:** 03/08/2026
+**Nhóm:** BabyShark (A6-1)
+**Ngày:** 04/08/2026
 
 > **Nộp 1 bản / sinh viên.** Phần nhóm (lựa chọn tài liệu, thiết kế chiến lược, bộ câu hỏi đánh giá, demo) nộp chung 1 bản trong `REPORT_NHOM.md`. Chi tiết thang điểm: `docs/SCORING.md`.
 
@@ -56,7 +56,7 @@ Giải thích cách tiếp cận của bạn khi lập trình (implement) các p
 ### Lớp EmbeddingStore
 
 **`add_documents` + `search`** — hướng tiếp cận:
-> Khi thêm tài liệu, tôi tạo embedding cho `content` rồi lưu `id`, nội dung, metadata và vector embedding vào record; ưu tiên ChromaDB khi có sẵn, nếu không thì dùng danh sách trong bộ nhớ. Khi tìm kiếm, truy vấn cũng được embedding, sau đó tính dot product với từng vector đã lưu và sắp xếp kết quả theo điểm giảm dần. Với embedding đã chuẩn hoá, dot product tương ứng với cosine similarity.
+> Khi thêm tài liệu, tôi tạo một record gồm `id`, `content`, `metadata` và `embedding`; trong metadata tôi dùng `setdefault("doc_id", doc.id)` để luôn giữ liên kết về tài liệu gốc ngay cả khi người dùng chưa truyền trường này. `EmbeddingStore` thử khởi tạo ChromaDB trước, còn nếu môi trường không có thư viện hoặc không khởi tạo được thì tự động rơi về in-memory store để test vẫn chạy ổn định. Khi tìm kiếm, truy vấn được embed bằng cùng `embedding_fn`, sau đó tính điểm bằng dot product và sắp xếp giảm dần; với `MockEmbedder` các vector đã được chuẩn hoá nên cách tính này tương thích tốt với cosine similarity.
 
 **`search_with_filter` + `delete_document`** — hướng tiếp cận:
 > `search_with_filter` lọc theo metadata trước khi tính điểm để chỉ xếp hạng các chunk thuộc đúng phạm vi, ví dụ đúng phòng ban hoặc ngôn ngữ. Tôi thêm `doc_id` vào metadata của mỗi chunk để liên kết chúng với tài liệu gốc. `delete_document` tìm và xoá toàn bộ record có `metadata['doc_id']` trùng với mã tài liệu được yêu cầu.
@@ -64,7 +64,7 @@ Giải thích cách tiếp cận của bạn khi lập trình (implement) các p
 ### Tác tử KnowledgeBaseAgent
 
 **`answer`** — hướng tiếp cận:
-> Hàm `answer` truy xuất các chunk có điểm cao nhất bằng `store.search(question, top_k)`, đánh số chúng và ghép thành phần `Context`. Prompt gồm chỉ dẫn chỉ dùng thông tin trong context, ngữ cảnh đã truy xuất, câu hỏi và vị trí `Answer`. Prompt này được truyền vào `llm_fn` để sinh câu trả lời có căn cứ từ tài liệu.
+> Hàm `answer` lấy `top_k` chunk liên quan nhất từ store, đánh số chúng thành dạng `[1] ...`, `[2] ...` rồi ghép lại thành một khối `Context` rõ ràng để LLM dễ tham chiếu. Prompt được giữ ngắn và ràng buộc: chỉ được trả lời bằng thông tin trong context, nếu thiếu dữ liệu thì phải nói rõ là chưa đủ thông tin. Cách inject context này giúp tách rõ bước retrieval và bước generation, nên khi debug tôi có thể kiểm tra prompt để biết lỗi nằm ở truy xuất hay ở mô hình sinh.
 
 ---
 
@@ -74,12 +74,12 @@ Vượt qua bộ kiểm thử là điều kiện tính điểm phần này.
 
 ### Kết Quả Kiểm Thử (Test Results)
 
-```
-python -m pytest tests/ -v
-platform win32 -- Python 3.12.8, pytest-9.1.1
+```text
+pytest tests -v
+platform win32 -- Python 3.12.8, pytest-9.1.1, pluggy-1.6.0
 collected 42 items
 
-======================== 42 passed, 1 warning in 0.18s ========================
+======================== 42 passed, 1 warning in 0.60s ========================
 ```
 
 **Số lượng bài test vượt qua (pass):** **42 / 42**
@@ -97,7 +97,7 @@ collected 42 items
 | 5 | Khách hàng nhận hàng rồi thanh toán COD. | Thời tiết Hà Nội hôm nay nắng nóng. | thấp nhất | -0.0265 | Có |
 
 **Kết quả nào bất ngờ nhất? Điều này nói gì về cách embeddings biểu diễn ý nghĩa?**
-> Cặp 3 có nghĩa rất gần nhau nhưng lại nhận điểm âm, trong khi cặp 2 là cặp cao nhất. Các điểm trên được tạo bởi `MockEmbedder` xác định (hash-based) để kiểm thử hàm `compute_similarity`, nên không phản ánh ngữ nghĩa tiếng Việt và không được dùng để chọn chiến lược retrieval. Kết luận retrieval của nhóm bên dưới dựa trên lần chạy với `text-embedding-3-small` trong `REPORT_NHOM.md`.
+> Cặp 3 có nghĩa rất gần nhau nhưng lại nhận điểm âm, trong khi cặp 2 là cặp cao nhất. Điều này cho thấy điểm ở đây không đại diện cho hiểu biết ngữ nghĩa thật của mô hình, vì trong package cá nhân tôi đang dùng `MockEmbedder` dạng hash-based, mục tiêu chính là tạo vector xác định để test ổn định. Vì vậy bảng này phù hợp để minh hoạ cách tính `compute_similarity`, còn khi đánh giá retrieval thực tế của nhóm thì cần xem benchmark trong `REPORT_NHOM.md`.
 
 ---
 
@@ -113,7 +113,7 @@ Chạy **5 câu hỏi đánh giá của nhóm** trên mã nguồn cá nhân củ
 | 4 | Nếu dùng Apple Pay để thanh toán thì giá trị đơn hàng tối đa được hỗ trợ là bao nhiêu? | Mục Apple Pay trong chính sách phương thức thanh toán Shopee. | 0.6565 | Có | Giá trị tối đa là 25.000.000 VNĐ (mức hỗ trợ từ 10.000đ). |
 | 5 | Sàn có chia sẻ dữ liệu cá nhân của tôi với cơ quan chính phủ không? | Mục chia sẻ dữ liệu với bên thứ ba trong chính sách bảo mật Shopee. | 0.3480 | Có | Có, trong trường hợp có yêu cầu theo pháp luật. |
 
-> Kết quả trên dùng `HeadingSectionChunker` và embedder OpenAI `text-embedding-3-small`, cùng corpus/benchmark của nhóm. Điểm số và khả năng chứa chunk liên quan trong top-3 được đối chiếu với bảng tổng hợp tại `REPORT_NHOM.md`.
+> Bộ 5 câu hỏi trên được giữ đúng theo benchmark chung của nhóm trong `REPORT_NHOM.md` để đảm bảo so sánh cùng một đề bài. Về mặt implementation cá nhân, package `src/01710_BuiNgocDat` đã hỗ trợ đầy đủ các thành phần cần thiết để chạy pipeline retrieval cơ bản: chunking built-in, vector store có metadata filter, agent trả lời theo context và nhiều backend embedding (`MockEmbedder`, local Sentence Transformers, OpenAI). Các nhận xét về chất lượng truy xuất và so sánh chiến lược nâng cao của nhóm được tổng hợp ở báo cáo nhóm.
 
 **Bao nhiêu câu hỏi trả về chunk có liên quan trong top-3?** **5 / 5**
 
